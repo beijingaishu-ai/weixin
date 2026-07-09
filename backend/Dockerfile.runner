@@ -1,0 +1,42 @@
+# 浏览器发布 runner 镜像 —— 在后端基础上装 Playwright + Chromium(+xvfb 供有头扫码)。
+# 仅 publish-runner / 续扫需要;api 保持精简用主 Dockerfile。
+# 国内网络:pip 走阿里云;Chromium 二进制走 npmmirror(PLAYWRIGHT_DOWNLOAD_HOST)。
+# 注意:不用 `playwright install --with-deps`(它在 Debian slim 上因 ttf-unifont/
+# ttf-ubuntu-font-family 不存在而失败),改手动列 Chromium 运行期系统库。
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TZ=Asia/Shanghai \
+    PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
+
+WORKDIR /app
+
+# 换 Debian 源为阿里云镜像(deb.debian.org 从国内约 15KB/s,换后秒级)。
+# 兼容旧 sources.list 与 trixie 的 deb822 格式 debian.sources。
+RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g; s|http://security.debian.org|https://mirrors.aliyun.com|g' \
+        /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tzdata curl xvfb \
+        libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+        libxcb1 libxkbcommon0 libatspi2.0-0 libx11-6 libxcomposite1 libxdamage1 \
+        libxext6 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
+        fonts-liberation fonts-unifont \
+    && rm -rf /var/lib/apt/lists/*
+
+# Playwright 固定 1.48.0:1.49+ 会另外下载 chromium-headless-shell(npmmirror 无此包 → 404);
+# 1.48 用单一 chromium 二进制,npmmirror 有,BrowserChannel API 与 1.49 兼容。
+COPY requirements.txt .
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com \
+        -r requirements.txt playwright==1.48.0 \
+    && playwright install chromium
+
+COPY . .
+
+EXPOSE 8000
+
+# 默认跑 Celery worker(可发布);有头扫码续期用 xvfb-run python scripts/wx_login.py <app_id>
+CMD ["celery", "-A", "app.celery_app", "worker", "-l", "info", "-c", "2"]

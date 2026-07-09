@@ -1,0 +1,34 @@
+# ---- Web 框架 ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# ---- 数据层 ----
+sqlalchemy==2.0.36
+aiomysql==0.2.0
+alembic==1.14.0          # 生产迁移路径(教学期用 deploy/mysql/init 建表)
+
+# ---- 缓存 / 队列(M4 Celery Beat 自动流水线,broker 复用 Redis) ----
+redis==5.2.1
+celery==5.4.0
+
+# ---- 配置 / 校验 ----
+pydantic==2.10.4
+pydantic-settings==2.7.1
+email-validator==2.2.0
+
+# ---- 安全:密码哈希 / JWT / AppSecret 加密 ----
+bcrypt==4.2.1
+pyjwt==2.10.1
+cryptography==44.0.0
+
+# ---- HTTP 客户端(wx-gateway 用,测试也用) ----
+httpx==0.28.1
+
+# ---- HTML 处理管道(content-center 白名单清洗 / 正文图片转存,纯 Python 无需编译) ----
+beautifulsoup4==4.12.3
+
+# ---- 测试 ----
+pytest==8.3.4
+pytest-asyncio==0.25.2
+aiosqlite==0.20.0

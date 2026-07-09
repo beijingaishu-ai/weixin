@@ -1,0 +1,121 @@
+# 微信公众号矩阵管理系统 —— M1 开发/演示编排
+# 一键启动:cp .env.example .env && (填 MP_SECRET_MASTER_KEY/JWT_SECRET_KEY) && docker compose up -d --build
+# 访问:http://localhost/  (前端)   http://localhost/api/v1/  (接口)   http://localhost/docs 需经 api
+#
+# M2+ 追加 worker / beat(见文件末注释),与 api 共用同一镜像。
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      sh -c "redis-server --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    # 每 6h reload 一次以加载 certbot 续下来的新证书
+    command: sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    networks: [backend, frontend]
+
+  # Let's Encrypt 证书签发/自动续期(webroot 挑战;每 12h 尝试 renew,到期前 30 天才真续)
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done"
+
+  # ---- M4:Celery 全自动流水线(与 api 同镜像,不同启动命令)----
+  # worker 走 Chromium runner 镜像:Celery 触发的发布经 BrowserChannel 在服务器无头发文。
+  # 登录态目录 secrets/ 挂大盘,与有头扫码续期(xvfb-run wx_login.py)共享同一份 storage_state。
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.runner
+    restart: unless-stopped
+    command: celery -A app.celery_app worker -l info -c 2
+    env_file: .env
+    volumes:
+      - ./secrets:/app/secrets
+      - ./media:/app/media
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [backend]
+
+  beat:
+    build: ./backend
+    restart: unless-stopped
+    command: celery -A app.celery_app beat -l info
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [backend]
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  backend:
+  frontend:

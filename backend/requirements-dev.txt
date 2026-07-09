@@ -1,0 +1,12 @@
+# 仅本地开发/测试用,生产镜像不安装。
+-r requirements.txt
+
+# 无 Docker 时的零依赖本地运行(run_local.py 用内存版 Redis 替身)
+fakeredis==2.26.2
+
+# 真实浏览器发布(BrowserChannel + scripts/wx_login.py)。
+# 装后需再执行:playwright install chromium
+# 教学 Mock 主线不需要它;仅用自有真实公众号真跑时安装。
+playwright==1.49.0
+
+# 测试见 requirements.txt 中已含的 pytest / pytest-asyncio / aiosqlite
