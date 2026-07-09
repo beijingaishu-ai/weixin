@@ -1,11 +1,20 @@
 # 微信公众号矩阵管理系统
 
-> 教学课题 · M1 交付(基础框架 + RBAC + 公众号管理)
-> 技术栈:Python 3.11 / FastAPI · Vue 3 / Vite / Element Plus · MySQL 8.0 / Redis 7 · Docker Compose + Nginx
+[![CI](https://github.com/beijingaishu-ai/weixin/actions/workflows/ci.yml/badge.svg)](https://github.com/beijingaishu-ai/weixin/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
+![Vue](https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-worker%2Fbeat-37814A?logo=celery&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-browser%20publish-2EAD33?logo=playwright&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-129%20passed-brightgreen)
 
-面向 MCN 机构 / 新媒体运营团队"多号统一管理"的典型场景:一个团队同时运营数十个微信公众号,需要多号统一托管、员工分权操作、内容一处编排、外部内容合规采集、采集内容自动流转到自有号、最终全自动发布。完整系统设计见 [`docs/公众号管理系统设计.md`](docs/公众号管理系统设计.md)。
+> 教学课题 · **M1–M4 全量交付** · 基础框架 + RBAC + 公众号管理 + 内容编排 + 采集/映射 + 全自动发文
+> 技术栈:Python 3.11 / FastAPI · Vue 3 / Vite / Element Plus · MySQL 8.0 / Redis 7 · Celery · Playwright · Docker Compose + Nginx
 
-本仓库是该课题的 **M1 里程碑** 交付,只覆盖"地基 + 权限 + 公众号管理"三块,后续 M2–M4 的内容中心、采集、映射、自动发文按同一架构分阶段追加。
+面向 MCN 机构 / 新媒体运营团队"多号统一管理"的典型场景:一个团队同时运营数十个微信公众号,需要多号统一托管、员工分权操作、内容一处编排、外部内容合规采集、采集内容自动流转到自有号、最终全自动发布。完整系统设计见 [`docs/公众号管理系统设计.md`](docs/公众号管理系统设计.md);浏览器发布与「扫码授权 + 2 天有效期」登录态机制见 [`docs/浏览器发布登录态授权设计.md`](docs/浏览器发布登录态授权设计.md)。
+
+**交付状态**:M1–M4 全部完成。发布通道**走浏览器自动化**(`BrowserChannel` / 教学 `MockChannel`)而非微信 API——未认证个人订阅号无 API 发布权;含**「扫码授权 + 2 天有效期」窗口内无人值守全自动发文**机制(登录态过期号任务原地挂起不进死信、续扫后自动恢复)。18 张表、统一发文状态机、`wx-gateway` 单出口,**129 后端测试通过**。下方 §一 起按 M1 地基逐层展开,M2–M4 增量见 §九。
 
 ---
 
